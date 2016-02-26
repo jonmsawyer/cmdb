@@ -4,12 +4,7 @@ import socket
 import json
 from datetime import date, time, datetime, timedelta
 
-
-def get_input(msg):
-    key_in = None
-    while key_in == None:
-        key_in = input(msg+' ')
-    return key_in
+from lib.lib import get_input
 
 
 def register(args, config):

@@ -1,16 +1,16 @@
 import os, sys
 from datetime import date, time, datetime, timedelta
 
-try:
-    import config
-except ImportError:
-    config = None
+from lib.lib import get_config, check_config
+
 from lib.register import register, unregister
 from lib.status import status, config_status
 from lib.poll import poll
 from lib.scheduled_task import install_scheduled_task, remove_scheduled_task
 from lib.file import add, remove, disable
 
+config = get_config('config')
+config = check_config(config)
 
 cmd_list = (
     ('register', '[--save-config]', 'Register this host with CMDB.'),
