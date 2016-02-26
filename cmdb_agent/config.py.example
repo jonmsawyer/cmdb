@@ -1,0 +1,12 @@
+# File: config.py
+# This is an automagically generated file. It was created by `agent.py` on
+# 2016-02-17 15:36:52.707856.
+
+AGENT_ROOT_DIR = r'C:\cmdb_agent'
+HOSTNAME = 'v-win7-js'
+PORT = 9090
+URI = '/dev/jsawyer/cmdb'
+API_KEY = None
+POLL_LOG_FILE = 'poll.log'
+
+# End config

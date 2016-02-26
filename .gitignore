@@ -1,3 +1,7 @@
+# Project specific ignores
+cmdb_agent/config.py
+conf/cmdb-apache.conf
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

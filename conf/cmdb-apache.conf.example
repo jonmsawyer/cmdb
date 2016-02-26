@@ -1,0 +1,55 @@
+#########################
+# Django specific config
+# Requires: mod_wsgi
+#########################
+Listen 9090
+<VirtualHost *:9090>
+WSGIScriptAlias /dev/jsawyer/cmdb /django_projects/cmdb/cmdb/wsgi.py
+#WSGIPythonPath /django_projects/cmdb
+
+RewriteEngine On
+RewriteRule ^/dev/jsawyer/cmdb$ /dev/jsawyer/cmdb/ [R,L]
+
+#RewriteCond %{HTTP:X-FORWARDED-USER} ^(.*)$
+#RewriteRule .* - [E=REMOTE_USER:%1]
+
+#Alias /cmdb/static/admin /Python34/Lib/site-packages/django/contrib/admin/static/admin
+Alias /dev/jsawyer/cmdb/static /django_projects/cmdb/collected_staticfiles
+Alias /dev/jsawyer/cmdb/favicon.ico /django_projects/cmdb/collected_staticfiles/j300e/images/favicon.ico
+Alias /dev/jsawyer/cmdb/docs /django_projects/cmdb/docs/build/html
+  ##############################################
+  # Apache 2.2 Directory Config for /django_projects/cmdb
+  # Uncomment the correct version
+  ##############################################
+  #<Directory /django_projects/cmdb>
+  #  Order allow,deny
+  #  Allow from all
+  #</Directory>
+  ##############################################
+  # Apache 2.4 Directory Config for /django_projects/cmdb
+  # Uncomment the correct version
+  ##############################################
+  <Directory /django_projects/cmdb>
+    Require all granted
+  </Directory>
+  <Directory /django_projects/cmdb/collected_staticfiles>
+    Require all granted
+  </Directory>
+  ##############################################
+
+  #<Location /dev/jsawyer/cmdb/admin>
+  #  AuthName "ACS Public"
+  #  AuthType SSPI
+  #  NTLMAuth On
+  #  NTLMAuthoritative Off
+  #  NTLMDomain ACS.local
+  #  NTLMOfferBasic On
+  #  NTLMOmitDomain On
+  #  
+  #  <RequireAll>
+  #    <RequireAny>
+  #      Require valid-user
+  #    </RequireAny>
+  #  </RequireAll>
+  #</Location>
+</VirtualHost>
