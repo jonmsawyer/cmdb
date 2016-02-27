@@ -1,6 +1,7 @@
 # Project specific ignores
 cmdb_agent/config.py
 conf/cmdb-apache.conf
+db/db.sqlite3
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

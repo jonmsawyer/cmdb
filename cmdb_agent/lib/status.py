@@ -4,7 +4,6 @@ import socket
 import json
 from datetime import date, time, datetime, timedelta
 
-
 def get_input(msg):
     if not msg.endswith(' '):
         msg += ' '

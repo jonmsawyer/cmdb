@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from clients.models import Client, Configuration, ConfigurationFile
 from clients.models import ClientException
 
+from cmdb_agent.lib import lib
 
 def error_msg(msg):
     return HttpResponse(json.dumps({'error': msg}), content_type='application/json')
@@ -14,13 +15,17 @@ def error_msg(msg):
 def debug_msg(msg):
     return HttpResponse(json.dumps({'debug': msg}), content_type='application/json')
 
-def status_msg(name, date_created, is_disabled, is_blacklisted):
-    return HttpResponse(json.dumps({
+def status_msg(name, date_created, is_disabled, is_blacklisted, api_key=''):
+    msg_dict = {
         'name': name,
         'date_created': str(date_created),
         'is_disabled': is_disabled,
         'is_blacklisted': is_blacklisted,
-    }), content_type='application/json')
+    }
+    if len(api_key) == 40:
+        msg_dict.update({'api_key': api_key})
+    
+    return HttpResponse(json.dumps(msg_dict), content_type='application/json')
 
 def config_status_msg(config_status):
     return HttpResponse(json.dumps(config_status), content_type='application/json')
@@ -43,12 +48,10 @@ def fetch_msg(details):
 def register(request):
     if request.method == 'POST':
         obj = json.loads(request.body.decode('UTF-8'))
-        if 'fqdn' not in obj:
-            return error_msg('Could not find `fqdn` key in object.')
-        fqdn = obj.get('fqdn', '').lower() or None
-        if not fqdn:
-            return error_msg('Could not get FQDN from object... Is it empty?')
-        
+        try:
+            fqdn = lib.require_key(obj, 'fqdn')
+        except Exception as e:
+            return error_msg(str(e))
         try:
             client = Client.new_client(fqdn)
             if not client:
@@ -56,7 +59,7 @@ def register(request):
         except ClientException as e:
             return error_msg(str(e))
         
-        return status_msg(fqdn, client.date_created, client.is_disabled)
+        return status_msg(fqdn, client.date_created, client.is_disabled, client.is_blacklisted, client.api_key)
     else:
         return error_msg('Invalid method.')
 
@@ -65,17 +68,15 @@ def register(request):
 def unregister(request):
     if request.method == 'POST':
         obj = json.loads(request.body.decode('UTF-8'))
-        if 'fqdn' not in obj:
-            return error_msg('Could not find `fqdn` key in object.')
-        fqdn = obj.get('fqdn', '').lower() or None
-        if not fqdn:
-            return error_msg('Could not get FQDN from object... Is it empty?')
-        
-        client = Client.disable_client(fqdn)
-        if not client:
-            return error_msg('Client `{}` is already unregistered.'.format(fqdn))
-        else:
-            return unregister_msg(fqdn, client)
+        try:
+            api_key = lib.require_key(obj, 'api_key')
+        except Exception as e:
+            return error_msg(str(e))
+        try:
+            client = Client.disable_client(api_key)
+            return unregister_msg(client.client_name, client.is_disabled)
+        except Exception as e:
+            return error_msg(str(e))
     else:
         return error_msg('Invalid method.')
 

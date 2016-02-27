@@ -1,21 +1,21 @@
+# System
 import os, sys
-from datetime import date, time, datetime, timedelta
 
-from lib.lib import get_config, check_config
-
+# Local
+import lib.lib
 from lib.register import register, unregister
 from lib.status import status, config_status
 from lib.poll import poll
 from lib.scheduled_task import install_scheduled_task, remove_scheduled_task
 from lib.file import add, remove, disable
 
-config = get_config('config')
-config = check_config(config)
+
+config = lib.lib.check_config(lib.lib.get_config('config'))
 
 cmd_list = (
-    ('register', '[--save-config]', 'Register this host with CMDB.'),
+    ('register', '', 'Register this host with CMDB.'),
     ('unregister', '', 'Unregister this host with CMDB.'),
-    ('status', '[--save-config]', 'Get the status of this host.'),
+    ('status', '', 'Get the status of this host.'),
     ('config_status', '', 'Get the configuration status of this host.'),
     ('add', 'FILE', 'Add a configuration FILE for this host.'),
     ('remove', 'FILE', 'Remove a configuration FILE for this host.'),
@@ -68,26 +68,27 @@ def main(args):
         arg1 = args[1]
         if arg1 not in [x[0] for x in cmd_list]:
             return error_msg(args, '`{}` is not a valid command.'.format(arg1))
+        less_args = args[2:]
         if arg1 == 'register':
-            register(args, config)
+            register(less_args, config)
         if arg1 == 'unregister':
-            unregister(args, config)
+            unregister(less_args, config)
         elif arg1 == 'status':
-            status(args, config)
+            status(less_args, config)
         elif arg1 == 'config_status':
-            config_status(args, config)
+            config_status(less_args, config)
         elif arg1 == 'poll':
-            poll(args, config)
+            poll(less_args, config)
         elif arg1 == 'install_scheduled_task':
-            install_scheduled_task(args, config)
+            install_scheduled_task(less_args, config)
         elif arg1 == 'remove_scheduled_task':
-            remove_scheduled_task(args, config)
+            remove_scheduled_task(less_args, config)
         elif arg1 == 'add':
-            add(args, config)
+            add(less_args, config)
         elif arg1 == 'remove':
-            remove(args, config)
+            remove(less_args, config)
         elif arg1 == 'disable':
-            disable(args, config)
+            disable(less_args, config)
     else:
         usage(args)
 

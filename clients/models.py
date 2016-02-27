@@ -59,16 +59,14 @@ class Client(models.Model):
             return c
     
     @staticmethod
-    def disable_client(name):
-        name = name.lower()
-        
+    def disable_client(api_key):
         try:
-            c = Client.objects.get(client_name=name)
+            c = Client.objects.get(api_key=api_key)
             c.is_disabled = True
             c.save()
-            return True
+            return c
         except:
-            return False
+            raise Exception('Invalid `api_key`.')
     
     @staticmethod
     def get_by_api_key(api_key):
