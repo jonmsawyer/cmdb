@@ -9,6 +9,10 @@ from clients.models import ClientException
 
 from cmdb_agent.lib import lib
 
+###########
+# Helpers
+###########
+
 def error_msg(msg):
     return HttpResponse(json.dumps({'error': msg}), content_type='application/json')
 
@@ -27,6 +31,18 @@ def status_msg(name, date_created, is_disabled, is_blacklisted, api_key=''):
     
     return HttpResponse(json.dumps(msg_dict), content_type='application/json')
 
+def info_msg(client):
+    configurations = client.configuration_set.all()
+    msg_dict = {
+        'name': client.client_name,
+        'date_created': str(client.date_created),
+        'is_disabled': client.is_disabled,
+        'is_blacklisted': client.is_blacklisted,
+        'api_key': client.api_key,
+        'configurations_tracking': len(client.configuration_set.all()),
+    }
+    return HttpResponse(json.dumps(msg_dict), content_type='application/json')
+
 def config_status_msg(config_status):
     return HttpResponse(json.dumps(config_status), content_type='application/json')
 
@@ -36,13 +52,15 @@ def unregister_msg(name, is_disabled):
 def configuration_added_msg(details):
     return HttpResponse(json.dumps(details), content_type='application/json')
 
-
 def poll_msg(details):
     return HttpResponse(json.dumps(details), content_type='application/json')
 
 def fetch_msg(details):
     return HttpResponse(json.dumps(details), content_type='application/json')
 
+#########
+# Views
+#########
 
 @csrf_exempt
 def register(request):
@@ -81,31 +99,28 @@ def unregister(request):
         return error_msg('Invalid method.')
 
 
+def info(request):
+    if request.method == 'GET':
+        api_key = lib.require_key(request.GET, 'api_key')
+        if len(api_key) != 40:
+            return error_msg('info: Invalid `api_key`.')
+        try:
+            client = Client.objects.get(api_key=api_key)
+            return info_msg(client)
+        except:
+            return error_msg('info: Client for `api_key` {} doesn\'t exist.'.format(api_key))
+
+
 def status(request):
     if request.method == 'GET':
         api_key = request.GET.get('api_key', '')
         if len(api_key) != 40:
-            return error_msg('Invalid `api_key`.')
-        
-        try:
-            client = Client.objects.get(api_key=api_key)
-            return status_msg(client.client_name, client.date_created, client.is_disabled, client.is_blacklisted)
-        except:
-            return error_msg('Client for `api_key` doesn\'t exist.')
-
-
-def config_status(request):
-    if request.method == 'GET':
-        api_key = request.GET.get('api_key', '')
-        if len(api_key) != 40:
-            return error_msg('Invalid `api_key`.')
-        
+            return error_msg('status: Invalid `api_key`.')
         try:
             config_status = Client.get_config_status(api_key)
             return config_status_msg(config_status)
         except:
-            raise
-            return error_msg('Client for `api_key` doesn\'t exist.')
+            return error_msg('status: Client for `api_key` doesn\'t exist.')
 
 
 @csrf_exempt

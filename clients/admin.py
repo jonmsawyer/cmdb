@@ -14,16 +14,16 @@ class ClientAdmin(admin.ModelAdmin):
     date_hierarchy = 'date_created'
     readonly_fields = ('date_created',)
     search_fields = ['client_name', 'api_key', 'date_created',]
-    inlines = [ConfigurationInline,]
+    #inlines = [ConfigurationInline,]
 admin.site.register(Client, ClientAdmin)
 
 class ConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('file_path', 'client', 'is_case_sensitive', 'is_disabled',)
-    list_filter = ('client__client_name', 'is_case_sensitive', 'is_disabled',)
+    list_display = ('file_path', 'client', 'is_binary', 'is_encrypted', 'is_case_sensitive', 'is_disabled',)
+    list_filter = ('client__client_name', 'is_binary', 'is_encrypted', 'is_case_sensitive', 'is_disabled',)
     #date_hierarchy = 'log_time'
     #readonly_fields = ('log_time',)
     search_fields = ['client', 'file_path',]
-    inlines = [ConfigurationFileInline,]
+    #inlines = [ConfigurationFileInline,]
 admin.site.register(Configuration, ConfigurationAdmin)
 
 class ConfigurationFileAdmin(admin.ModelAdmin):

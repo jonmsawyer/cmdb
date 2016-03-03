@@ -1,80 +1,23 @@
-import os, sys
-import requests
-import socket
-import json
-from datetime import date, time, datetime, timedelta
+# System
+import os, sys, socket, json
 import tempfile
+from datetime import datetime
 from hashlib import sha1
 from pathlib import Path
 
+# 3rd Party
+import requests
 
-def get_input(msg):
-    key_in = None
-    while key_in == None:
-        key_in = input(msg+' ')
-    return key_in
+# Local
+import lib.lib
 
-def case_sensitive():
-    cs = True
-    temp_handle, temp_path = tempfile.mkstemp()
-    if os.path.exists(temp_path.upper()):
-        cs = False
-    os.close(temp_handle)
-    os.unlink(temp_path)
-    return cs
-
-CASE_SENSITIVE = case_sensitive()
 
 def add(args, config):
-    api_key = None
-    hostname = None
-    port = None
-    uri = None
     path = '/clients/add/'
     agent_root_dir = os.path.dirname(os.path.dirname(__file__))
-    
-    if config:
-        if hasattr(config, 'HOSTNAME'):
-            hostname = getattr(config, 'HOSTNAME')
-        if hasattr(config, 'PORT'):
-            port = getattr(config, 'PORT')
-        if hasattr(config, 'URI'):
-            uri = getattr(config, 'URI')
-        if hasattr(config, 'API_KEY'):
-            api_key = getattr(config, 'API_KEY')
-    
-    if not hostname:
-        hostname = get_input('What is the HOSTNAME of the ACS CMDB server?')
-    
-    if not port:
-        port = get_input('What is the PORT of the ACS CMDB server?')
-    
-    if not uri:
-        uri = get_input('What is the ROOT URI of the ACS CMDB server?')
-    
-    if not api_key:
-        api_key = get_input('What is the API KEY of this managed host?')
-    
-    url = 'http://{hostname}:{port}{uri}{path}'.format(
-        hostname=hostname,
-        port=port,
-        uri=uri,
-        path=path
-    )
-    
-    print('Agent Root Directory: {}'.format(agent_root_dir))
-    print('CMDB Hostname: {}'.format(hostname))
-    print('CMDB Port: {}'.format(port))
-    print('CMDB URI: {}'.format(uri))
-    print('CMDB Path: {}'.format(path))
-    print('CMDB URL: {}'.format(url))
-    print('My API Key: {}'.format(api_key))
-    
-    if len(args) > 2:
-        file_path = args[2]
-    else:
-        print('Missing FILE parameter for command `add`.')
-        sys.exit(1)
+    url = lib.lib.get_config_url(config, path)
+    api_key = lib.lib.get_config_api_key(config)
+    file_path = args[0]
     
     try:
         file_path = str(Path(file_path).resolve())
@@ -102,74 +45,26 @@ def add(args, config):
         'type': 'configuration',
         'configuration': {
             'file_path': file_path,
-            'case_sensitive': CASE_SENSITIVE,
+            'case_sensitive': lib.lib.is_case_sensitive(),
             'mtime': int(st.st_mtime),
             'payload': buf,
         }
     }
     
     req = requests.post(url, data=json.dumps(data))
+    resp_body = lib.lib.get_response_body(req)
+    obj = json.loads(resp_body)
+    lib.lib.check_for_error(obj)
     
-    print('Status code: {}'.format(req.status_code))
-    resp_body = req.content.decode('UTF-8')
-    if req.status_code != 200:
-        with open(r'c:\error.html', 'w') as fh:
-            fh.write(resp_body)
-            print('An error occurred, check c:\error.html.')
-    else:
-        print('Response body: {}'.format(json.dumps(json.loads(resp_body), indent=4)))
+    print('Added    {} r1'.format(obj.get('file_path')))
 
 
 def remove(args, config):
-    api_key = None
-    hostname = None
-    port = None
-    uri = None
     path = '/clients/remove/'
     agent_root_dir = os.path.dirname(os.path.dirname(__file__))
-    
-    if config:
-        if hasattr(config, 'HOSTNAME'):
-            hostname = getattr(config, 'HOSTNAME')
-        if hasattr(config, 'PORT'):
-            port = getattr(config, 'PORT')
-        if hasattr(config, 'URI'):
-            uri = getattr(config, 'URI')
-        if hasattr(config, 'API_KEY'):
-            api_key = getattr(config, 'API_KEY')
-    
-    if not hostname:
-        hostname = get_input('What is the HOSTNAME of the ACS CMDB server?')
-    
-    if not port:
-        port = get_input('What is the PORT of the ACS CMDB server?')
-    
-    if not uri:
-        uri = get_input('What is the ROOT URI of the ACS CMDB server?')
-    
-    if not api_key:
-        api_key = get_input('What is the API KEY of this managed host?')
-    
-    url = 'http://{hostname}:{port}{uri}{path}'.format(
-        hostname=hostname,
-        port=port,
-        uri=uri,
-        path=path
-    )
-    
-    print('Agent Root Directory: {}'.format(agent_root_dir))
-    print('CMDB Hostname: {}'.format(hostname))
-    print('CMDB Port: {}'.format(port))
-    print('CMDB URI: {}'.format(uri))
-    print('CMDB Path: {}'.format(path))
-    print('CMDB URL: {}'.format(url))
-    print('My API Key: {}'.format(api_key))
-    
-    if len(args) > 2:
-        file_path = args[2]
-    else:
-        print('Missing FILE parameter for command `remove`.')
-        sys.exit(1)
+    url = lib.lib.get_config_url(config, path)
+    api_key = lib.lib.get_config_api_key(config)
+    file_path = args[0]
     
     try:
         file_path = str(Path(file_path).resolve())
@@ -197,22 +92,18 @@ def remove(args, config):
         'type': 'configuration',
         'configuration': {
             'file_path': file_path,
-            'case_sensitive': CASE_SENSITIVE,
+            'case_sensitive': lib.lib.is_case_sensitive(),
             'mtime': int(st.st_mtime),
             'payload': buf,
         }
     }
     
     req = requests.post(url, data=json.dumps(data))
+    resp_body = lib.lib.get_response_body(req)
+    obj = json.loads(resp_body)
+    lib.lib.check_for_error(obj)
     
-    print('Status code: {}'.format(req.status_code))
-    resp_body = req.content.decode('UTF-8')
-    if req.status_code != 200:
-        with open(r'c:\error.html', 'w') as fh:
-            fh.write(resp_body)
-            print('An error occurred, check c:\error.html.')
-    else:
-        print('Response body: {}'.format(json.dumps(json.loads(resp_body), indent=4)))
+    print('Removed  {}'.format(obj.get('file_path')))
 
 
 def disable(args, config):

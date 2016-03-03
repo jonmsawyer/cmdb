@@ -148,62 +148,94 @@ class Client(models.Model):
         details = {
             'file_path': '',
             'is_disabled': True,
+            'is_binary': None,
+            'is_encrypted': None,
+            'is_case_sensitive': None,
         }
         config = self.configuration_set.filter(file_path=file_path)
         if len(config) == 0:
-            return {'error': 'File not found.'}
+            return {'error': 'Remote file not found.'}
         if len(config) > 1:
             return {'error': 'Multiple files found.'}
         if len(config) == 1:
             config = config[0]
             details['file_path'] = config.file_path
             details['is_disabled'] = config.is_disabled
+            details['is_binary'] = config.is_binary
+            details['is_encrypted'] = config.is_encrypted
+            details['is_case_sensitive'] = config.is_case_sensitive
             if not config.is_disabled:
                 conf_file = config.configurationfile_set.order_by('-revision')[0]
                 details['mtime'] = conf_file.mtime
                 details['sha1_checksum'] = conf_file.sha1_checksum
                 details['content'] = conf_file.content
+                details['content_length'] = len(conf_file.content)
+                details['revision'] = conf_file.revision
         return details
     
-    def push_configuration(self, file_path, case_sensitive, mtime, sha1_checksum, content):
-        if case_sensitive != True:
+    def push_configuration(self, **kwargs):
+        for atr in ('file_path', 'is_binary', 'is_encrypted',
+                    'is_case_sensitive', 'content', 'sha1_checksum'):
+            if atr not in kwargs:
+                return {'error': 'Could not find `{}` attribute in kwargs.'.format(atr)}
+        file_path = kwargs.get('file_path')
+        is_binary = kwargs.get('is_binary')
+        is_encrypted = kwargs.get('is_encrypted')
+        is_case_sensitive = kwargs.get('is_case_sensitive')
+        sha1_checksum = kwargs.get('sha1_checksum')
+        content = kwargs.get('content')
+        
+        if not is_case_sensitive == True:
             file_path = file_path.lower()
+        
         config = self.configuration_set.filter(file_path=file_path)
         if len(config) == 0:
-            return {'error': 'File not found.'}
+            return {'error': 'File on remote server not found.'}
         if len(config) > 1:
-            return {'error': 'Multiple files found.'}
+            return {'error': 'Multiple files on remote server found.'}
         if len(config) == 1:
             config = config[0]
-            if config.is_disabled:
-                return {'error': 'Configuration file `{}` is disabled.'.format(file_path)}
+        
+        if config.is_disabled:
+            return {'error': 'Configuration file `{}` is disabled.'.format(file_path)}
+        
+        if is_binary == True:
+            calculated_sha1_checksum = sha1(content).hexdigest()
+        elif is_binary == False:
             calculated_sha1_checksum = sha1(content.encode('UTF-8')).hexdigest()
-            if calculated_sha1_checksum != sha1_checksum:
-                return {'error': 'Checksum mismatch for file `{}`, aborting.'.format(file_path)}
-            
+        if calculated_sha1_checksum != sha1_checksum:
+            return {'error': 'Checksum mismatch for file `{}`, aborting.'.format(file_path)}
+        
+        try:
             try:
-                try:
-                    conf_file = config.configurationfile_set.order_by('-revision')[0]
-                except IndexError:
-                    conf_file = ConfigurationFile()
-                    conf_file.configuration = config
-                    conf_file.save()
-                if mtime < conf_file.mtime:
-                    return {'error': 'Modified timestamp of pushed file is older than configuration, aborting.'}
-                if mtime == conf_file.mtime:
-                    return {'error': 'Files are the same age, aborting.'}
-                conf_file.mtime = int(mtime)
-                conf_file.content = content
-                conf_file.sha1_checksum = sha1_checksum
+                conf_file = config.configurationfile_set.order_by('-revision')[0]
+            except IndexError:
+                conf_file = ConfigurationFile()
+                conf_file.configuration = config
                 conf_file.save()
-                return {'ok': 'Success!'}
-            except Exception as e:
-                return {'error': str(e)}
+            if mtime < conf_file.mtime:
+                return {'error': 'Modified timestamp of pushed file is older than configuration, aborting.'}
+            if mtime == conf_file.mtime:
+                return {'error': 'Files are the same age, aborting.'}
+            conf_file.mtime = int(mtime)
+            conf_file.content = content
+            conf_file.sha1_checksum = sha1_checksum
+            conf_file.save()
+            return {
+                'file_path': file_path,
+                'mtime': int(mtime),
+                'sha1_checksum': sha1_checksum,
+                'revision': conf_file.revision
+            }
+        except Exception as e:
+            return {'error': str(e)}
 
 
 class Configuration(models.Model):
     client = models.ForeignKey('Client')
     file_path = models.CharField(max_length=516)
+    is_binary = models.BooleanField(default=False)
+    is_encrypted = models.BooleanField(default=False)
     is_case_sensitive = models.BooleanField(default=True)
     is_disabled = models.BooleanField(default=False)
     
