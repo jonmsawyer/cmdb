@@ -10,25 +10,28 @@ import lib.lib
 
 
 def genconfig(args, config):
-    agent_root_dir = config.get('AGENT_ROOT_DIR', None)
+    agent_root_dir = config.get('AGENT_ROOT_DIR')
     if agent_root_dir is None:
         agent_root_dir = os.path.dirname(os.path.dirname(__file__))
-    hostname = config.get('HOSTNAME', None)
-    port = config.get('PORT', None)
-    uri = config.get('URI', None)
-    api_key = config.get('API_KEY', None)
+    hostname = config.get('HOSTNAME')
+    port = config.get('PORT')
+    uri = config.get('URI')
+    api_key = config.get('API_KEY')
+    encryption_key = config.get('ENCRYPTION_KEY')
     
     agent_root_dir = lib.lib.get_input('What is the root directory of the CMDB agent?', agent_root_dir)
     hostname = lib.lib.get_input('What is the HOSTNAME of the ACS CMDB server?', hostname)
     port = lib.lib.get_input('What is the PORT of the ACS CMDB server?', port)
     uri = lib.lib.get_input('What is the ROOT URI of the ACS CMDB server?', uri)
     api_key = lib.lib.get_input('What is the API KEY of this managed host?', api_key)
+    encryption_key = lib.lib.get_input('What is the ENCRYPTION KEY of this managed host?', encryption_key)
     
     print('Agent Root Directory: {}'.format(agent_root_dir))
     print('CMDB Hostname: {}'.format(hostname))
     print('CMDB Port: {}'.format(port))
     print('CMDB URI: {}'.format(uri))
     print('My API Key: {}'.format(api_key))
+    print('My Encryption Key: {}'.format(encryption_key))
     
     #req = requests.get(url, params={'api_key': api_key})
     #
@@ -48,6 +51,7 @@ PORT = {port}
 URI = '{uri}'
 API_KEY = '{api_key}'
 POLL_LOG_FILE = 'poll.log'
+ENCRYPTION_KEY = '{encryption_key}'
 
 # End config
 '''
@@ -69,7 +73,8 @@ POLL_LOG_FILE = 'poll.log'
             uri=uri,
             api_key=api_key,
             datetime=datetime.now().isoformat(' '),
-            agent_root_dir=agent_root_dir
+            agent_root_dir=agent_root_dir,
+            encryption_key=encryption_key
         )
         print('Config:')
         print('=======')

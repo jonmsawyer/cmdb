@@ -37,47 +37,33 @@ def sync(args, config):
         log('Exiting: configuration count does not match the number of returned configurations.')
         sys.exit(1)
     
-    files_to_fetch = []
-    files_to_push = []
-    files_to_ignore = []
-    
     for configuration in configs:
+        file_path = configuration.get('file_path')
+        remote_file = lib.lib.RemoteConfigFile(file_path, config)
+        remote_file.resolve()
+        local_file = lib.lib.LocalConfigFile(file_path, config)
+        local_file.resolve()
+        print('Remote config: {}'.format(remote_file.config))
+        print('Local config: {}'.format(local_file.config))
         log(lib.lib.check_local_file(configuration))
-        if configuration.get('is_disabled', True):
-            log('      D  {} is disabled, skipping...'.format(configuration.get('file_path')))
-            continue
-        file_path = configuration.get('file_path', '')
-        file_found = False
-        file_mtime = 0
-        try:
-            st = os.stat(file_path)
-            file_found = True
-            file_mtime = int(st.st_mtime)
-            file_buf = None
-            with open(file_path, 'r') as fh:
-                file_buf = fh.read()
-            file_sha1_checksum = sha1(file_buf.encode('UTF-8')).hexdigest()
-        except FileNotFoundError as e:
-            log('      E  {} could not be found, fetching...'.format(file_path))
-            file_found = True
-            file_mtime = 0
-            file_buf = ''
-            file_sha1_checksum = sha1(''.encode('UTF-8')).hexdigest()
         
-        if file_mtime < configuration.get('mtime', 0):
-            log('      F  {} is older than the server, fetching...'.format(file_path))
-            files_to_fetch.append(file_path)
+        if remote_file.config.get('is_disabled') == True:
+            #if configuration.get('is_disabled', True):
+            log('      D    `- {} is disabled, skipping...'.format(configuration.get('file_path')))
+            continue
+        
+        if local_file.is_file_not_found == True:
+            log('      E    `- {} could not be found, fetching...'.format(file_path))
+        if local_file < remote_file:
+            log('      F    `- {} is older than the server, fetching...'.format(file_path))
             fetch_url = lib.lib.get_config_url(config, '/clients/fetch/')
             fetch(fetch_url, api_key, file_path, configuration.get('mtime', 0))
-        elif file_mtime == configuration.get('mtime', 0):
-            log('      I  {} is same age as the server, ignoring...'.format(file_path))
-            files_to_ignore.append(file_path)
-        elif file_mtime > configuration.get('mtime', 0):
-            log('      P  {} is newer than the server, pushing...'.format(file_path))
+        elif local_file == remote_file:
+            log('      I    `- {} is same age as the server, ignoring...'.format(file_path))
+        elif local_file > remote_file:
+            log('      P         `- {} is newer than the server, pushing...'.format(file_path))
             push_url = fetch_url = lib.lib.get_config_url(config, '/clients/push/')
             push(push_url, api_key, file_path)
-            files_to_push.append(file_path)
-
 
 def fetch(url, api_key, file_path, mtime):
     #log('Fetch: {}, {}, {}, {}'.format(url, api_key, file_path, mtime))

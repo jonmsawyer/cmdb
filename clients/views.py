@@ -323,29 +323,38 @@ def push(request):
         except:
             return error_msg('Client for `api_key` doesn\'t exist.')
         
+        # file_path
         file_path = obj.get('file_path', None)
         if file_path is None:
             return error_msg('Invalid `file_path`.')
         if len(file_path) == 0:
             return error_msg('`file_path` cannot be an empty string.')
+        
+        # mtime
         mtime = obj.get('mtime', None)
         if mtime is None:
             return error_msg('Invalid `mtime`.')
         if not isinstance(mtime, int):
             return error_msg('`mtime` must be an integer.')
+        
+        # sha1_checksum
         sha1_checksum = obj.get('sha1_checksum', None)
         if sha1_checksum is None:
             return error_msg('Invalid `sha1_checksum`.')
+        
+        # content
         content = obj.get('content', None)
         if content is None:
             return error_msg('Invalid `content`.')
-        case_sensitive = obj.get('case_sensitive', None)
-        if case_sensitive is None:
-            return error_msg('Invalid `case_sensitive`.')
-        if not isinstance(case_sensitive, bool):
+        
+        # is_case_sensitive
+        is_case_sensitive = obj.get('is_case_sensitive', None)
+        if is_case_sensitive is None:
+            return error_msg('Invalid `is_case_sensitive`.')
+        if not isinstance(is_case_sensitive, bool):
             return error_msg('`case_sensitive` must be boolean.')
         
         try:
-            return fetch_msg(client.push_configuration(file_path, case_sensitive, mtime, sha1_checksum, content))
+            return fetch_msg(client.push_configuration(**obj))
         except Exception as e:
             return error_msg('Could not push `{}`: {}'.format(file_path, str(e)))

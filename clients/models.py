@@ -96,6 +96,8 @@ class Client(models.Model):
             c_dict = {}
             c_dict['file_path'] = config.file_path
             c_dict['is_disabled'] = config.is_disabled
+            c_dict['is_binary'] = config.is_binary
+            c_dict['is_encrypted'] = config.is_encrypted
             if config.is_disabled:
                 data['configurations'].append(c_dict)
                 continue
@@ -131,6 +133,8 @@ class Client(models.Model):
             configuration = {}
             configuration['file_path'] = conf.file_path
             configuration['is_disabled'] = conf.is_disabled
+            configuration['is_binary'] = conf.is_binary
+            configuration['is_encrypted'] = conf.is_encrypted
             if not conf.is_disabled:
                 try:
                     conf_file = conf.configurationfile_set.order_by('-revision')[0]
@@ -175,7 +179,7 @@ class Client(models.Model):
     
     def push_configuration(self, **kwargs):
         for atr in ('file_path', 'is_binary', 'is_encrypted',
-                    'is_case_sensitive', 'content', 'sha1_checksum'):
+                    'is_case_sensitive', 'content', 'sha1_checksum', 'mtime'):
             if atr not in kwargs:
                 return {'error': 'Could not find `{}` attribute in kwargs.'.format(atr)}
         file_path = kwargs.get('file_path')
@@ -184,6 +188,7 @@ class Client(models.Model):
         is_case_sensitive = kwargs.get('is_case_sensitive')
         sha1_checksum = kwargs.get('sha1_checksum')
         content = kwargs.get('content')
+        mtime = kwargs.get('mtime')
         
         if not is_case_sensitive == True:
             file_path = file_path.lower()

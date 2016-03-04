@@ -11,262 +11,6 @@ from cryptography.fernet import Fernet
 import requests
 
 
-class ConfigFileError(Exception):
-    pass
-
-class LocalConfigFileError(ConfigFileError):
-    pass
-
-class RemoteConfigFileError(ConfigFileError):
-    pass
-
-class ConfigFileComparisonError(ConfigFileError):
-    pass
-
-class BaseConfigFile(object):
-    config = {
-        'file_path': None,
-        'is_binary': None,
-        'is_encrypted': False,
-        'is_case_sensitive': None,
-        'is_disabled': None,
-        'mtime': -1,
-        'sha1_checksum': None,
-        'content': None,
-        'content_length': None,
-    }
-    is_resolved = False
-    path = None
-    stat = None
-    encryption_key = None
-    is_encryptable = False
-    binary_mode = False
-    config_file_type = None
-    config_dict = None # the config.py config dict as given by lib.get_config()
-    
-    def __init__(self, file_path, config_dict=None, encryption_key=None, binary_mode=False, *args, **kwargs):
-        self.config['file_path'] = file_path
-        self.path = Path(file_path)
-        if isinstance(config_dict, dict):
-            self.config_dict = check_config(config_dict)
-        try:
-            self.stat = self.path.resolve().stat()
-        except:
-            self.stat = None
-        self.is_resolved = False
-        self.binary_mode = bool(binary_mode)
-        if encryption_key is not None:
-            key_len = 32
-            if not isinstance(encryption_key, str):
-                raise LocalConfigFileError('Encryption key must be a url-safe 32 character ascii string.')
-            if len(encryption_key[:key_len]) != key_len:
-                raise LocalConfigFileError('Encryption key must be a url-safe 32 character ascii string.')
-            self.encryption_key = base64.b64encode(encryption_key.encode('ascii'))
-            Fernet(self.encryption_key) # try it out, if no exception, we're good
-            self.is_encryptable = True
-    
-    def __lt__(self, other):
-        if self.config.get('mtime') == -1 or \
-           other.config.get('mtime') == -1:
-                raise ConfigFileComparisonError('mtime error: mtime must be set.')
-        return self.config.get('mtime') < other.config.get('mtime')
-    
-    def __le__(self, other):
-        if self.config.get('mtime') == -1 or \
-           other.config.get('mtime') == -1:
-                raise ConfigFileComparisonError('mtime error: mtime must be set.')
-        return self.config.get('mtime') <= other.config.get('mtime')
-    
-    def __eq__(self, other):
-        if self.config.get('sha1_checksum') is None or \
-           other.config.get('sha1_checksum') is None:
-                raise ConfigFileComparisonError('checksum error: checksums must be set.')
-        if self.config.get('mtime') == -1 or \
-           other.config.get('mtime') == -1:
-                raise ConfigFileComparisonError('mtime error: mtime must be set.')
-        
-        if self.config.get('sha1_checksum') == other.config.get('sha1_checksum'):
-            return self.config.get('mtime') == other.config.get('mtime')
-        else:
-            return False
-    
-    def __ne__(self, other):
-        return not self == other
-    
-    def __gt__(self, other):
-        return not self <= other
-    
-    def __ge__(self, other):
-        return not self < other
-    
-    def is_binary(self):
-        if self.config.get('is_binary') is not None:
-            return self.config.get('is_binary')
-        else:
-            return None
-    
-    def encrypt(self, save_content=False):
-        if self.encryption_key is None:
-            raise Exception('Cannot encrypt content, missing encryption key.')
-        if self.config.get('content') is None:
-            raise Exception('Cannot encrypt content, content is empty.')
-        if self.is_encryptable == False:
-            raise Exception('Cannot encrypt, improper configuration.')
-        if self.config.get('is_encrypted') == True:
-            return self.config.get('content')
-        
-        f = Fernet(self.encryption_key)
-        if self.config.get('is_binary') == True:
-            encr_content = f.encrypt(self.config.get('content'))
-        elif self.config.get('is_binary') == False:
-            encr_content = f.encrypt(self.config.get('content').encode('utf-8')).decode('utf-8')
-        else:
-            raise Exception('Could not tell if file is binary or text. Aborting.')
-        if save_content == True:
-            try:
-                self.config['content'] = encr_content
-                self.config['content_length'] = len(encr_content)
-                self.config['is_encrypted'] = True
-            except:
-                raise
-        return encr_content
-    
-    def decrypt(self, save_content=False):
-        if self.encryption_key is None:
-            raise LocalConfigFileError('Cannot decrypt content, missing encryption key.')
-        if self.config.get('content') is None:
-            raise LocalConfigFileError('Cannot decrypt content, content is empty.')
-        if self.is_encryptable == False:
-            raise LocalConfigFileError('Cannot decrypt, improper configuration.')
-        if self.config.get('is_encrypted') == False:
-            return self.config.get('content')
-        
-        f = Fernet(self.encryption_key)
-        if self.config.get('is_binary') == True:
-            decr_content = f.decrypt(self.config.get('content'))
-        elif self.config.get('is_binary') == False:
-            decr_content = f.decrypt(self.config.get('content').encode('utf-8')).decode('utf-8')
-        else:
-            raise LocalConfigFileError('Could not tell if file is binary or text. Aborting.')
-        if save_content == True:
-            try:
-                self.config['content'] = decr_content
-                self.config['content_length'] = len(decr_content)
-                self.config['is_encrypted'] = False
-            except:
-                raise
-        return decr_content
-    
-    def get_config(self):
-        return dict(self.config)
-    
-    def get_config_json(self):
-        return json.dumps(self.config)
-    
-    def checksum(self):
-        if self.config.get('sha1_checksum') is not None:
-            return self.config.get('sha1_checksum')
-        else:
-            if self.config.get('content') is not None:
-                if self.config.get('is_binary') == False:
-                    return sha1(self.config.get('content').encode('utf-8')).hexdigest()
-                else:
-                    return sha1(self.config.get('content')).hexdigest()
-            else:
-                return None
-    
-    def resolve(self):
-        try:
-            self.config['file_path'] = str(self.path)
-            self.read(self.binary_mode)
-            self.is_resolved = True
-            return self.is_resolved                
-        except:
-            raise
-    
-    def read(self, binary=False):
-        raise Exception('Method `read` must be overridden in derived class.')
-    
-    def is_case_sensitive(self):
-        raise Exception('Method `is_case_sensitive` must be overridden in derived class.')
-
-
-class LocalConfigFile(BaseConfigFile):
-    def __init__(self, file_path, config_dict=None, *args, **kwargs):
-        self.config_file_type = 'local'
-        super(LocalConfigFile, self).__init__(file_path, config_dict, *args, **kwargs)
-    
-    def read(self, binary=False):
-        with open(str(self.path), 'rb') as fh:
-            buf = fh.read()
-        try:
-            if binary == True:
-                raise Exception('Forcing binary mode.')
-            buf = buf.decode('UTF-8')
-            # buf had no problems decoding, let's flag this as non-binary and
-            # re-read the file in text mode to take care of line endings
-            # automagically.
-            with open(str(self.path), 'r') as fh:
-                buf = fh.read()
-            self.config['is_binary'] = False
-        except:
-            self.config['is_binary'] = True
-        self.config['is_encrypted'] = False
-        self.config['is_case_sensitive'] = self.is_case_sensitive()
-        self.config['is_disabled'] = False
-        self.config['mtime'] = int(self.stat.st_mtime)
-        self.config['sha1_checksum'] = self.checksum()
-        self.config['content'] = buf
-        self.config['content_length'] = len(buf)
-        return buf
-    
-    def is_case_sensitive(self):
-        cs = True
-        temp_handle, temp_path = tempfile.mkstemp()
-        if os.path.exists(temp_path.upper()):
-            cs = False
-        os.close(temp_handle)
-        os.unlink(temp_path)
-        return cs    
-    
-    def resolve(self):
-        try:
-            self.path = self.path.resolve()
-            self.stat = self.path.stat()
-            self.config['file_path'] = str(self.path)
-            self.read(self.binary_mode)
-            self.is_resolved = True
-            return self.is_resolved
-        except:
-            raise
-
-class RemoteConfigFile(BaseConfigFile):
-    def __init__(self, file_path, config_dict, encryption_key=None, binary_mode=False, *args, **kwargs):
-        self.config_file_type = 'remote'
-        super(RemoteConfigFile, self).__init__(file_path, config_dict, encryption_key=encryption_key, binary_mode=binary_mode, *args, **kwargs)
-    
-    def read(self, binary_mode=False):
-        path = '/clients/fetch/'
-        url = get_config_url(self.config_dict, path)
-        api_key = get_config_api_key(self.config_dict)
-        req = requests.get(url, params={'api_key': api_key, 'file_path': self.config.get('file_path')})
-        payload = get_response_body(req)
-        payload = json.loads(payload)
-        
-        self.config['is_binary'] = payload.get('is_binary')
-        self.config['is_encrypted'] = payload.get('is_encrypted')
-        self.config['is_case_sensitive'] = payload.get('is_case_sensitive')
-        self.config['is_disabled'] = payload.get('is_disabled')
-        self.config['mtime'] = payload.get('mtime', -1)
-        self.config['sha1_checksum'] = payload.get('sha1_checksum')
-        self.config['content'] = payload.get('content')
-        self.config['content_length'] = payload.get('content_length')
-        
-        return payload.get('content')
-    
-    def is_case_sensitive(self):
-        return self.config.get('is_case_sensitive')
-
 def get_input(msg, default=''):
     key_in = None
     while key_in == None or key_in == '':
@@ -308,7 +52,8 @@ def check_config(config, args=None):
         ('PORT', int),
         ('URI', str),
         ('API_KEY', str),
-        ('POLL_LOG_FILE', str)
+        ('POLL_LOG_FILE', str),
+        ('ENCRYPTION_KEY', str),
     )
     for atr, t in valid_attrs:
         if not atr in config:
@@ -364,7 +109,8 @@ def get_response_body(request):
         with open(err_file, 'w') as fh:
             fh.write(resp_body)
         print('There was an error, check `{}`.'.format(err_file))
-        sys.exit(1)
+        return {'error': 'There was an error, check `{}`.'.format(err_file)}
+        #sys.exit(1)
     return resp_body
 
 class RequireKeyError(Exception):
@@ -387,7 +133,8 @@ def check_for_error(dictionary):
         raise Exception('`dictionary` parameter must be of type `{}`.'.format(str(dict)))
     if 'error' in dictionary:
         print(dictionary.get('error'))
-        sys.exit(1)
+        return
+        #sys.exit(1)
 
 def is_case_sensitive():
     cs = True
